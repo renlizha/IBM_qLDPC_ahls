@@ -6,7 +6,10 @@
 2) repetition_code_dmem.json — gamma0=0.1 (DMem-BP, MinSumBPDecoderFixed).
    Sanity-check only (cross_checked=false).
 3) repetition_code_relay.json — full Relay-BP-SS via RelayDecoderF32
-   (gamma0=0.1, num_sets=3, S=1). Also emits device/leg_gamma_table.gen.hpp.
+   (gamma0=0.1, num_sets=3, S=1, pre_iter=10). Also emits
+   device/leg_gamma_table.gen.hpp.
+4) repetition_code_relay_multileg.json — same config with pre_iter=1 so
+   error_qubit_1 is forced through leg 1 (reset msgs / carry posterior).
    Historical fixed-point files (1)/(2) are left untouched as artifacts.
 """
 
@@ -49,9 +52,10 @@ RUST_EXPECTED = [
     },
 ]
 
-# Must match ahls/device/min_sum_bp_types.hpp.
+# Must match ahls/device/relay_bp_types.hpp (production defaults).
 GAMMA0 = 0.1
 PRE_ITER = 10
+PRE_ITER_MULTILEG = 1  # KPRE_ITER_OVERRIDE=1 regression build
 NUM_SETS = 3
 SET_MAX_ITER = 10
 STOP_NCONV = 1
@@ -148,7 +152,7 @@ def build_decoder(gamma0: Optional[float] = None):
     }
 
 
-def build_relay_decoder(explicit_gammas: np.ndarray):
+def build_relay_decoder(explicit_gammas: np.ndarray, pre_iter: int = PRE_ITER):
     import relay_bp
 
     check_dense = np.array([[1, 1, 0], [0, 1, 1]], dtype=np.uint8)
@@ -158,7 +162,7 @@ def build_relay_decoder(explicit_gammas: np.ndarray):
         csr_matrix(check_dense),
         error_priors=error_priors,
         gamma0=GAMMA0,
-        pre_iter=PRE_ITER,
+        pre_iter=pre_iter,
         num_sets=NUM_SETS,
         set_max_iter=SET_MAX_ITER,
         explicit_gammas=np.asarray(explicit_gammas, dtype=np.float64),
@@ -173,7 +177,7 @@ def build_relay_decoder(explicit_gammas: np.ndarray):
         "log_prior_ratios": np.log((1.0 - error_priors) / error_priors).tolist(),
         "relay_config": {
             "gamma0": GAMMA0,
-            "pre_iter": PRE_ITER,
+            "pre_iter": pre_iter,
             "num_sets": NUM_SETS,
             "set_max_iter": SET_MAX_ITER,
             "stop_nconv": STOP_NCONV,
@@ -208,40 +212,13 @@ def _decode_vectors(decoder) -> list[dict[str, Any]]:
     return vectors
 
 
-def _investigate_multi_leg_gap(decoder) -> dict[str, Any]:
-    """Try to find a detector input that fails leg 0 so legs 1-3 run.
-
-    On the 3-qubit repetition code BP converges in ~1 iteration for all
-    weight-0/1 syndromes; there are no trapping sets. Document the gap.
-    """
-    note = (
-        "Verification gap: repetition-code Relay goldens all converge within "
-        "leg 0 (iterations <= pre_iter) for the 4 RUST_EXPECTED syndromes, so "
-        "legs 1-3 (message reset + posterior carry) are not exercised. No "
-        "synthetic 2-check detector was found that fails leg 0 without "
-        "changing pre_iter/set_max_iter. Close in Phase 6 on surface-code "
-        "d=7 / Gross [[144,12,12]], which have trapping sets."
-    )
-    # Exhaustive 2-bit syndromes already covered by RUST_EXPECTED.
-    # Try random high-weight "fake" priors via a throwaway decoder is out of
-    # scope (would change the golden config). Record observed iters instead.
-    observed = []
-    for spec in RUST_EXPECTED:
-        detectors = np.array(spec["detectors"], dtype=np.uint8)
-        result = decoder.decode_detailed(detectors)
-        observed.append(
-            {
-                "name": spec["name"],
-                "iterations": int(result.iterations),
-                "success": bool(result.success),
-            }
-        )
-    multi_leg = any(o["iterations"] > PRE_ITER for o in observed)
-    return {
-        "multi_leg_exercised": multi_leg,
-        "observed": observed,
-        "note": note,
-    }
+def _leg_reached(total_iters: int, pre_iter: int) -> int:
+    """Infer the highest leg index entered from total iterations (S=1)."""
+    if total_iters <= pre_iter:
+        return 0
+    remaining = total_iters - pre_iter
+    # Legs 1.. use set_max_iter each; with S=1 we stop on first success.
+    return 1 + (remaining - 1) // SET_MAX_ITER
 
 
 def export_plain(out_path: Path) -> None:
@@ -336,9 +313,8 @@ def export_relay(out_path: Path, gen_hpp: Path) -> None:
     leg_gamma = make_leg_gamma(explicit)
     emit_leg_gamma_header(gen_hpp, leg_gamma)
 
-    decoder, meta = build_relay_decoder(explicit)
+    decoder, meta = build_relay_decoder(explicit, pre_iter=PRE_ITER)
     vectors = _decode_vectors(decoder)
-    gap = _investigate_multi_leg_gap(decoder)
 
     failed = [v for v in vectors if not v["success"]]
     if failed:
@@ -357,6 +333,30 @@ def export_relay(out_path: Path, gen_hpp: Path) -> None:
                 f"!= Rust expected {spec['expected_decoding']}",
                 file=sys.stderr,
             )
+
+    observed = [
+        {
+            "name": v["name"],
+            "iterations": v["iterations"],
+            "success": v["success"],
+            "leg_reached": _leg_reached(v["iterations"], PRE_ITER),
+        }
+        for v in vectors
+    ]
+    # Production pre_iter=10: all vectors stay on leg 0; multi-leg path is
+    # covered by repetition_code_relay_multileg.json (pre_iter=1).
+    gap = {
+        "multi_leg_exercised": False,
+        "observed": observed,
+        "note": (
+            "Production pre_iter=10 goldens all converge within leg 0. The "
+            "leg-transition path (reset v2c/c2v, carry posterior_prev) is "
+            "closed by the dedicated regression golden "
+            "repetition_code_relay_multileg.json (same decoder, pre_iter=1 / "
+            "KPRE_ITER_OVERRIDE=1), which forces error_qubit_1 through leg 1."
+        ),
+        "closed_by": "test/golden/repetition_code_relay_multileg.json",
+    }
 
     payload = {
         "code": "repetition_3",
@@ -383,7 +383,8 @@ def export_relay(out_path: Path, gen_hpp: Path) -> None:
     print(
         "Relay-BP-SS: cross_checked=false. "
         f"Sanity-check: all {len(vectors)} succeeded. "
-        f"multi_leg_exercised={gap['multi_leg_exercised']}"
+        f"multi_leg_exercised={gap['multi_leg_exercised']} "
+        f"(closed_by={gap['closed_by']})"
     )
     for v in vectors:
         print(
@@ -391,7 +392,94 @@ def export_relay(out_path: Path, gen_hpp: Path) -> None:
             f"decoding={v['expected_decoding']} success={v['success']} "
             f"iters={v['iterations']}"
         )
-    print(gap["note"])
+
+
+def export_relay_multileg(out_path: Path) -> None:
+    """Same Relay config as export_relay but pre_iter=1 to force leg 1.
+
+    Premise: under pre_iter=10, error_qubit_1 needs 2 iterations; with
+    pre_iter=1, leg 0 cannot finish that work, so the decoder enters leg 1.
+    """
+    explicit = make_explicit_gammas()
+    leg_gamma = make_leg_gamma(explicit)
+    decoder, meta = build_relay_decoder(explicit, pre_iter=PRE_ITER_MULTILEG)
+    vectors = _decode_vectors(decoder)
+
+    failed = [v for v in vectors if not v["success"]]
+    if failed:
+        print(
+            "RELAY MULTILEG SANITY-CHECK FAILED: expected all 4 to succeed:",
+            file=sys.stderr,
+        )
+        print(json.dumps(failed, indent=2), file=sys.stderr)
+        raise SystemExit(1)
+
+    multi_leg_vectors = []
+    for v in vectors:
+        leg = _leg_reached(v["iterations"], PRE_ITER_MULTILEG)
+        entry = {
+            "name": v["name"],
+            "iterations": v["iterations"],
+            "leg_reached": leg,
+            "leg_gamma_row": leg_gamma[leg],
+        }
+        if v["iterations"] > PRE_ITER_MULTILEG:
+            multi_leg_vectors.append(entry)
+
+    if not multi_leg_vectors:
+        print(
+            "RELAY MULTILEG PREMISE FAILED: none of the 4 vectors needed "
+            f"more than pre_iter={PRE_ITER_MULTILEG} iteration(s). "
+            "error_qubit_1 was expected to enter leg 1; investigate.",
+            file=sys.stderr,
+        )
+        print(json.dumps(vectors, indent=2), file=sys.stderr)
+        raise SystemExit(1)
+
+    note = (
+        f"Regression golden: identical to repetition_code_relay.json except "
+        f"pre_iter={PRE_ITER_MULTILEG} (matches -DKPRE_ITER_OVERRIDE=1). "
+        f"Vectors with iterations > {PRE_ITER_MULTILEG} entered leg >= 1, "
+        f"exercising message reset + posterior carry. "
+        f"Leg-transition vectors: "
+        + ", ".join(
+            f"{e['name']} (iters={e['iterations']}, leg={e['leg_reached']}, "
+            f"gamma={e['leg_gamma_row']})"
+            for e in multi_leg_vectors
+        )
+    )
+
+    payload = {
+        "code": "repetition_3",
+        "source": (
+            f"relay_bp.RelayDecoderF32(gamma0=0.1, pre_iter={PRE_ITER_MULTILEG}, "
+            "num_sets=3, set_max_iter=10, explicit_gammas=Uniform(-0.24,0.66) "
+            "seed=0, stop_nconv=1, stopping_criterion=nconv)"
+        ),
+        "cross_checked": False,
+        "cross_check_oracle": None,
+        "cross_check_note": (
+            "Dedicated multileg regression: same RelayDecoderF32 setup as "
+            "repetition_code_relay.json with only pre_iter lowered to 1 so "
+            "leg 0 fails on syndromes that need 2 BP iters under production "
+            "config (error_qubit_1). Proves reset-messages / carry-posterior."
+        ),
+        "multileg_note": note,
+        "multileg_vectors": multi_leg_vectors,
+        **meta,
+        "vectors": vectors,
+    }
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload, indent=2) + "\n")
+    print(f"Wrote {out_path}")
+    print(f"Relay multileg: {len(multi_leg_vectors)} vector(s) entered leg>=1.")
+    print(note)
+    for v in vectors:
+        print(
+            f"  {v['name']}: detectors={v['detectors']} -> "
+            f"decoding={v['expected_decoding']} success={v['success']} "
+            f"iters={v['iterations']}"
+        )
 
 
 def main() -> None:
@@ -417,6 +505,12 @@ def main() -> None:
         help="Output JSON path for Relay-BP-SS (RelayDecoderF32) vectors",
     )
     parser.add_argument(
+        "--relay-multileg-output",
+        type=Path,
+        default=default_out_dir / "repetition_code_relay_multileg.json",
+        help="Output JSON for pre_iter=1 multileg regression goldens",
+    )
+    parser.add_argument(
         "--leg-gamma-hpp",
         type=Path,
         default=device_dir / "leg_gamma_table.gen.hpp",
@@ -425,13 +519,14 @@ def main() -> None:
     parser.add_argument(
         "--skip-fixed-point",
         action="store_true",
-        help="Only export Relay-BP-SS golden + leg_gamma header",
+        help="Only export Relay-BP-SS goldens + leg_gamma header",
     )
     args = parser.parse_args()
     if not args.skip_fixed_point:
         export_plain(args.output.resolve())
         export_dmem(args.dmem_output.resolve())
     export_relay(args.relay_output.resolve(), args.leg_gamma_hpp.resolve())
+    export_relay_multileg(args.relay_multileg_output.resolve())
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
-#ifndef MIN_SUM_BP_HOST_HPP
-#define MIN_SUM_BP_HOST_HPP
+#ifndef RELAY_BP_HOST_HPP
+#define RELAY_BP_HOST_HPP
 
-#include "min_sum_bp_types.hpp"
+#include "relay_bp_types.hpp"
 
 #include <sycl/sycl.hpp>
 

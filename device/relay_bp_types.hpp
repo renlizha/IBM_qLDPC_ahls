@@ -2,10 +2,11 @@
 // MsgT = IEEE-754 float32, matching rust RelayDecoder<f32> / RelayDecoderF32.
 // See docs/env_setup_notes.md.
 
-#ifndef MIN_SUM_BP_TYPES_HPP
-#define MIN_SUM_BP_TYPES_HPP
+#ifndef RELAY_BP_TYPES_HPP
+#define RELAY_BP_TYPES_HPP
 
 #include <cmath>
+#include <limits>
 
 using MsgT = float;
 
@@ -20,15 +21,18 @@ constexpr int kMaxVarDeg = 2;
 //   S = kStopNConv = 1 (StoppingCriterion::NConv{stop_after:1})
 constexpr int kNumRelaySets = 3;
 constexpr int kNumLegs = 1 + kNumRelaySets;  // 4
+#ifndef KPRE_ITER_OVERRIDE
 constexpr int kPreIter = 10;
+#else
+constexpr int kPreIter = KPRE_ITER_OVERRIDE;
+#endif
 constexpr int kSetMaxIter = 10;
 constexpr int kStopNConv = 1;
 constexpr float kGamma0 = 0.1f;
 
-// Clip bound retained for continuity with the fixed-point-era design
-// (MinSumDecoderConfig::set_fixed max_data_value). RelayDecoderF32 golden
-// vectors leave max_data_value unset; on this code messages stay well below.
-constexpr float kMaxDataValue = 16.0f;
+// Sentinel for "no second-min yet" in min-two magnitudes (Rust: N::max_value()).
+// Not a message clip — RelayDecoderF32 leaves max_data_value unset.
+constexpr float kMsgAbsSentinel = std::numeric_limits<float>::max();
 
 // Dense H = [[1,1,0],[0,1,1]] as CSR (check -> vars) and CSC (var -> checks).
 constexpr int kChkDeg[kNChk] = {2, 2};
@@ -42,10 +46,6 @@ constexpr int kVarChecks[kNVar][kMaxVarDeg] = {{0, 0}, {0, 1}, {1, 0}};
 //   kLegGamma[r][*] for r=1..3 = explicit_gammas[r % num_sets][*]
 //     matching Rust RelayDecoder::init_next_set(set_idx) indexing.
 #include "leg_gamma_table.gen.hpp"
-
-inline MsgT clip_msg(MsgT x) {
-  return fminf(fmaxf(x, -kMaxDataValue), kMaxDataValue);
-}
 
 struct DetectorWord {
   unsigned char d[kNChk];

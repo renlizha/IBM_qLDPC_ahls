@@ -3,10 +3,10 @@
 // rust/relay RelayDecoder::decode_detailed / decode_inner / init_next_set.
 // v1: one single_task kernel; pipe-connected check/variable kernels deferred.
 
-#ifndef MIN_SUM_BP_KERNELS_HPP
-#define MIN_SUM_BP_KERNELS_HPP
+#ifndef RELAY_BP_KERNELS_HPP
+#define RELAY_BP_KERNELS_HPP
 
-#include "min_sum_bp_types.hpp"
+#include "relay_bp_types.hpp"
 
 #include <sycl/sycl.hpp>
 
@@ -79,7 +79,7 @@ inline void min_sum_bp_decode(const DetectorWord &det_in,
         }
 
         MsgT min_m = fabsf(messages[0]);
-        MsgT second_m = kMaxDataValue;
+        MsgT second_m = kMsgAbsSentinel;
         for (int i = 1; i < deg; ++i) {
           const MsgT a = fabsf(messages[i]);
           if (a < min_m) {
@@ -104,11 +104,12 @@ inline void min_sum_bp_decode(const DetectorWord &det_in,
 
       // Variable -> check (Eq 2/3) with DMem-BP bias (Eq 4 / line 5):
       //   Lambda_j(t) = (1-gamma_j(r))*lambda_j + gamma_j(r)*M_j(t-1)
+      // No magnitude clip: RelayDecoderF32 leaves max_data_value unset.
       for (int v = 0; v < kNVar; ++v) {
         const int deg = kVarDeg[v];
         const MsgT gamma_v = kLegGamma[leg][v];
         const MsgT lambda_j =
-            clip_msg(priors[v] * (1.0f - gamma_v) + posterior_prev[v] * gamma_v);
+            priors[v] * (1.0f - gamma_v) + posterior_prev[v] * gamma_v;
         MsgT running = lambda_j;
         for (int i = 0; i < deg; ++i) {
           const int c = kVarChecks[v][i];
@@ -125,13 +126,7 @@ inline void min_sum_bp_decode(const DetectorWord &det_in,
         }
       }
 
-      for (int c = 0; c < kNChk; ++c) {
-        for (int v = 0; v < kNVar; ++v) {
-          v2c[c][v] = clip_msg(v2c[c][v]);
-        }
-      }
       for (int v = 0; v < kNVar; ++v) {
-        posterior[v] = clip_msg(posterior[v]);
         posterior_prev[v] = posterior[v];  // M_j(t-1) <- M_j(t)
       }
 

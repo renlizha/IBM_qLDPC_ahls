@@ -1,40 +1,22 @@
 {
   "code": "repetition_3",
-  "source": "relay_bp.RelayDecoderF32(gamma0=0.1, pre_iter=10, num_sets=3, set_max_iter=10, explicit_gammas=Uniform(-0.24,0.66) seed=0, stop_nconv=1, stopping_criterion=nconv)",
+  "source": "relay_bp.RelayDecoderF32(gamma0=0.1, pre_iter=1, num_sets=3, set_max_iter=10, explicit_gammas=Uniform(-0.24,0.66) seed=0, stop_nconv=1, stopping_criterion=nconv)",
   "cross_checked": false,
   "cross_check_oracle": null,
-  "cross_check_note": "No independent Rust #[test] oracle exists for this exact multi-leg RelayDecoderF32 config on the 3-qubit repetition code. Vectors come from relay_bp.RelayDecoderF32 with the config below. Sanity-check: all 4 RUST_EXPECTED syndromes decode successfully.",
-  "verification_gap": {
-    "multi_leg_exercised": false,
-    "observed": [
-      {
-        "name": "no_error",
-        "iterations": 1,
-        "success": true,
-        "leg_reached": 0
-      },
-      {
-        "name": "error_qubit_0",
-        "iterations": 1,
-        "success": true,
-        "leg_reached": 0
-      },
-      {
-        "name": "error_qubit_1",
-        "iterations": 2,
-        "success": true,
-        "leg_reached": 0
-      },
-      {
-        "name": "error_qubit_2",
-        "iterations": 1,
-        "success": true,
-        "leg_reached": 0
-      }
-    ],
-    "note": "Production pre_iter=10 goldens all converge within leg 0. The leg-transition path (reset v2c/c2v, carry posterior_prev) is closed by the dedicated regression golden repetition_code_relay_multileg.json (same decoder, pre_iter=1 / KPRE_ITER_OVERRIDE=1), which forces error_qubit_1 through leg 1.",
-    "closed_by": "test/golden/repetition_code_relay_multileg.json"
-  },
+  "cross_check_note": "Dedicated multileg regression: same RelayDecoderF32 setup as repetition_code_relay.json with only pre_iter lowered to 1 so leg 0 fails on syndromes that need 2 BP iters under production config (error_qubit_1). Proves reset-messages / carry-posterior.",
+  "multileg_note": "Regression golden: identical to repetition_code_relay.json except pre_iter=1 (matches -DKPRE_ITER_OVERRIDE=1). Vectors with iterations > 1 entered leg >= 1, exercising message reset + posterior carry. Leg-transition vectors: error_qubit_1 (iters=3, leg=1, gamma=[-0.2251251280243238, 0.4919432152802452, 0.5814800195499495])",
+  "multileg_vectors": [
+    {
+      "name": "error_qubit_1",
+      "iterations": 3,
+      "leg_reached": 1,
+      "leg_gamma_row": [
+        -0.2251251280243238,
+        0.4919432152802452,
+        0.5814800195499495
+      ]
+    }
+  ],
   "check_matrix": [
     [
       1,
@@ -60,7 +42,7 @@
   ],
   "relay_config": {
     "gamma0": 0.1,
-    "pre_iter": 10,
+    "pre_iter": 1,
     "num_sets": 3,
     "set_max_iter": 10,
     "stop_nconv": 1,
@@ -128,7 +110,7 @@
       ],
       "success": true,
       "iterations": 1,
-      "max_iter": 10
+      "max_iter": 1
     },
     {
       "name": "error_qubit_0",
@@ -147,7 +129,7 @@
       ],
       "success": true,
       "iterations": 1,
-      "max_iter": 10
+      "max_iter": 1
     },
     {
       "name": "error_qubit_1",
@@ -165,7 +147,7 @@
         1
       ],
       "success": true,
-      "iterations": 2,
+      "iterations": 3,
       "max_iter": 10
     },
     {
@@ -185,7 +167,7 @@
       ],
       "success": true,
       "iterations": 1,
-      "max_iter": 10
+      "max_iter": 1
     }
   ]
 }

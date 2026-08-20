@@ -1,7 +1,7 @@
 // SYCL host: queue setup, buffers, kernel launch, result readback.
 
-#include "min_sum_bp_host.hpp"
-#include "min_sum_bp_kernels.hpp"
+#include "relay_bp_host.hpp"
+#include "relay_bp_kernels.hpp"
 
 #include <sycl/ext/altera/fpga_extensions.hpp>
 
@@ -22,7 +22,7 @@ std::string device_name(sycl::queue &q) {
 
 void load_priors(const double log_prior_ratios[kNVar], MsgT priors[kNVar]) {
   for (int v = 0; v < kNVar; ++v) {
-    priors[v] = clip_msg(static_cast<MsgT>(log_prior_ratios[v]));
+    priors[v] = static_cast<MsgT>(log_prior_ratios[v]);
   }
 }
 

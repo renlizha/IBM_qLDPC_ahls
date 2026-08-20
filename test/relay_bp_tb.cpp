@@ -1,6 +1,6 @@
 // Testbench: load ahls/test/golden/*.json and assert bit-exact decodings.
 
-#include "min_sum_bp_host.hpp"
+#include "relay_bp_host.hpp"
 
 #include <cstdlib>
 #include <fstream>
