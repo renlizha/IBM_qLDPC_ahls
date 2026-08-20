@@ -1,0 +1,69 @@
+{
+  "code": "repetition_3",
+  "source": "ahls host int4 oracle (relay_bp_decode.hpp; same arithmetic as MinSumBPDecodeID)",
+  "cross_checked": true,
+  "cross_check_oracle": "device/relay_bp_decode.hpp min_sum_bp_decode",
+  "cross_check_note": "Committed int4.2.8 golden. TB requires device == host oracle == this JSON (decoding, detectors, success, iterations).",
+  "numeric_type": "int4.2.8",
+  "int4_config": {
+    "msg_mag_bits": 4,
+    "prior_scale_S": 2,
+    "mem_scale_M": 8,
+    "post_sat": 15,
+    "alpha": "1-2^{-(t+1)} via shifts",
+    "pre_iter": 10,
+    "set_max_iter": 10,
+    "num_legs": 4,
+    "prior_mags": [12, 12, 12],
+    "leg_beta_int_flat": [7, 7, 7, 9, 4, 3, 5, 4, 6, 5, 7, 9]
+  },
+  "error_priors": [0.003, 0.003, 0.003],
+  "log_prior_ratios": [5.80614, 5.80614, 5.80614],
+  "multi_leg_exercised": false,
+  "vectors": [
+    {
+      "name": "no_error",
+      "detectors": [0, 0],
+      "expected_decoding": [0, 0, 0],
+      "expected_decoded_detectors": [0, 0],
+      "success": true,
+      "iterations": 1,
+      "leg_reached": 0,
+      "pre_iter": 10,
+      "set_max_iter": 10
+    },
+    {
+      "name": "error_qubit_0",
+      "detectors": [1, 0],
+      "expected_decoding": [1, 0, 0],
+      "expected_decoded_detectors": [1, 0],
+      "success": true,
+      "iterations": 2,
+      "leg_reached": 0,
+      "pre_iter": 10,
+      "set_max_iter": 10
+    },
+    {
+      "name": "error_qubit_1",
+      "detectors": [1, 1],
+      "expected_decoding": [0, 1, 0],
+      "expected_decoded_detectors": [1, 1],
+      "success": true,
+      "iterations": 1,
+      "leg_reached": 0,
+      "pre_iter": 10,
+      "set_max_iter": 10
+    },
+    {
+      "name": "error_qubit_2",
+      "detectors": [0, 1],
+      "expected_decoding": [0, 0, 1],
+      "expected_decoded_detectors": [0, 1],
+      "success": true,
+      "iterations": 2,
+      "leg_reached": 0,
+      "pre_iter": 10,
+      "set_max_iter": 10
+    }
+  ]
+}
