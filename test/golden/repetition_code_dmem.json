@@ -1,0 +1,116 @@
+{
+  "code": "repetition_3",
+  "source": "relay_bp.MinSumBPDecoderFixed(gamma0=0.1)",
+  "cross_checked": false,
+  "cross_check_oracle": null,
+  "cross_check_note": "No hardcoded Rust test covers gamma0!=None for the 3-qubit repetition code. Vectors come from relay_bp.MinSumBPDecoderFixed with gamma0=0.1. Sanity-check only: all 4 inputs decoded successfully (this code has no trapping sets).",
+  "check_matrix": [
+    [
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1
+    ]
+  ],
+  "error_priors": [
+    0.003,
+    0.003,
+    0.003
+  ],
+  "fixed_point": {
+    "int_bits": 5,
+    "frac_bits": 2,
+    "max_data_value": 16.0,
+    "max_iter": 10,
+    "alpha": 1.0,
+    "gamma0": 0.1,
+    "data_scale_value": null
+  },
+  "log_prior_ratios": [
+    5.806138481293728,
+    5.806138481293728,
+    5.806138481293728
+  ],
+  "vectors": [
+    {
+      "name": "no_error",
+      "detectors": [
+        0,
+        0
+      ],
+      "expected_decoding": [
+        0,
+        0,
+        0
+      ],
+      "expected_decoded_detectors": [
+        0,
+        0
+      ],
+      "success": true,
+      "iterations": 1,
+      "max_iter": 10
+    },
+    {
+      "name": "error_qubit_0",
+      "detectors": [
+        1,
+        0
+      ],
+      "expected_decoding": [
+        1,
+        0,
+        0
+      ],
+      "expected_decoded_detectors": [
+        1,
+        0
+      ],
+      "success": true,
+      "iterations": 1,
+      "max_iter": 10
+    },
+    {
+      "name": "error_qubit_1",
+      "detectors": [
+        1,
+        1
+      ],
+      "expected_decoding": [
+        0,
+        1,
+        0
+      ],
+      "expected_decoded_detectors": [
+        1,
+        1
+      ],
+      "success": true,
+      "iterations": 2,
+      "max_iter": 10
+    },
+    {
+      "name": "error_qubit_2",
+      "detectors": [
+        0,
+        1
+      ],
+      "expected_decoding": [
+        0,
+        0,
+        1
+      ],
+      "expected_decoded_detectors": [
+        0,
+        1
+      ],
+      "success": true,
+      "iterations": 1,
+      "max_iter": 10
+    }
+  ]
+}
