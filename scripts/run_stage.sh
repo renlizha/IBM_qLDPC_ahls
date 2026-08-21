@@ -51,10 +51,27 @@ case "$STAGE" in
     esac
     ;;
   report)
-    echo "WORKDIR=$WORKDIR design=$DESIGN stage=report DEVICE=$DEVICE"
+    echo "WORKDIR=$WORKDIR design=$DESIGN stage=report DEVICE=$DEVICE variant=$VARIANT"
     mkdir -p "$WORKDIR/build/report"
+    case "$VARIANT" in
+      default)
+        EXTRA_FLAGS=()
+        ;;
+      latency)
+        # Step 5 (kernel latency optimization plan): BP iterations are
+        # inherently sequential (no cross-iteration pipelining possible),
+        # so the default throughput-oriented scheduler settings mostly
+        # cost area/fMAX for no throughput benefit here -- try the minimum
+        # latency flow instead (handbook 16_2_1).
+        EXTRA_FLAGS=(-Xsoptimize=latency)
+        ;;
+      *)
+        echo "unknown --variant '$VARIANT' for stage=report (expected default|latency)" >&2
+        exit 2
+        ;;
+    esac
     exec_in ahls -Wall -DFPGA_HARDWARE -I device -I host \
-      -Xshardware -Xsdevice="$DEVICE" -fsycl-link=early \
+      -Xshardware -Xsdevice="$DEVICE" -fsycl-link=early "${EXTRA_FLAGS[@]}" \
       host/relay_bp_host.cpp test/relay_bp_tb.cpp \
       -o build/report/relay_bp.report
     python3 "$WORKDIR/scripts/parse_report.py" "$WORKDIR/build/report"

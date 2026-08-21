@@ -9,7 +9,18 @@ Rust/Python golden model in `../rust/relay` (`RelayDecoder` /
 `relay_bp.RelayDecoderF32`) — not a reinterpretation.
 
 **Current status:** float32 Relay-BP-SS (`kNumLegs=4`, `S=1`), bit-exact vs
-golden vectors under `fpga_emu`; HLS `report` flow runs on Agilex7.
+golden vectors under `fpga_emu`; HLS `report` flow runs on Agilex7. The
+per-BP-iteration kernel loop has been restructured (flattened `leg`×`t` loop,
+no data-dependent `break`s, unrolled degree-bounded sub-loops, algebraic
+prefix-sum removal, `kernel_args_restrict`) so it is now reported **pipelined
+at II=15** (was not pipelined at all before), giving an estimated **~31 ns
+per BP iteration** at the compiler's ~480 MHz Agilex7 scheduling *target*
+(down from a ~508 ns/iteration baseline; note this is a pre-Quartus-fit
+report-flow estimate, not a placed-and-routed measurement — see
+[`docs/analysis_log.md`](docs/analysis_log.md) for the full derivation,
+caveats, and a `scheduler_target_fmax_mhz` sweep). Fixed-point/`int4`
+numerics (which would shorten this further) remain out of scope for this
+float32 line of work.
 
 ## Layout
 
@@ -78,6 +89,11 @@ Multileg regression (`-DKPRE_ITER_OVERRIDE=1`, forces leg 1 on `error_qubit_1`):
 ./scripts/run_stage.sh --stage report
 # → build/report/relay_bp.report (+ .prj/)
 # HTML: build/report/relay_bp.report.prj/reports/report.html
+
+# Minimum-latency scheduler flow (`-Xsoptimize=latency`); no measured
+# II/Fmax benefit over default for this kernel, but a free, no-downside
+# area trim -- see docs/analysis_log.md.
+./scripts/run_stage.sh --stage report --variant latency
 ```
 
 `sim` / `fpga` stages are not wired yet (later phase).
