@@ -89,10 +89,10 @@ $AHLS/bin/ahls-exec --bind "$WORKDIR" --pwd "$WORKDIR" -- \
 
 $AHLS/bin/ahls-exec --bind "$WORKDIR" --pwd "$WORKDIR" -- \
   ./build/emu/relay_bp.fpga_emu \
-  test/golden/repetition_code_relay.json
+  test/golden/repetition_code_relay_i32.json
 ```
 
-Or: `ahls/scripts/run_stage.sh --stage emu` (production `pre_iter=10`).
+Or: `ahls/scripts/run_stage.sh --stage emu` (production `pre_iter=10`, i32).
 
 Multileg regression (`pre_iter=1`, forces leg 1 on `error_qubit_1`):
 
@@ -105,17 +105,19 @@ $AHLS/bin/ahls-exec --bind "$WORKDIR" --pwd "$WORKDIR" -- \
 
 $AHLS/bin/ahls-exec --bind "$WORKDIR" --pwd "$WORKDIR" -- \
   ./build/emu/relay_bp_multileg.fpga_emu \
-  test/golden/repetition_code_relay_multileg.json
+  test/golden/repetition_code_relay_multileg_i32.json
 ```
 
 Or: `ahls/scripts/run_stage.sh --stage emu --variant multileg`
 
+Float32: `run_stage.sh --stage emu --variant float` (`-DRELAY_MSG_T_FLOAT`).
+
 Compile is one `ahls` line with both `.cpp` files (same one-shot pattern for
 report / sim / fpga: all sources on that flow’s single `ahls` line). Output is
-`build/emu/relay_bp.fpga_emu` (or `_multileg`). The second `ahls-exec` only
-**runs** that binary.
+`build/emu/relay_bp.fpga_emu` (or `_multileg` / `_float`). The second
+`ahls-exec` only **runs** that binary.
 
-**Result (Relay-BP-SS float32):** 4/4 production + 4/4 multileg under
+**Result:** 4/4 production i32 + 4/4 multileg i32 + 4/4 float under
 `fpga_emu`. Multileg `error_qubit_1` reports `iters=3` (entered leg 1).
 
 Regenerate goldens + `device/leg_gamma_table.gen.hpp` (needs `ahls/.venv`):
@@ -125,21 +127,28 @@ source .venv/bin/activate
 python scripts/export_golden_vectors.py --skip-fixed-point
 ```
 
-## Relay-BP-SS (Algorithm 1) + float32
+## Relay-BP-SS (Algorithm 1) + default i32 (S=256)
 
 Kernel implements the full outer relay loop (`kNumLegs=4`: leg 0 Mem-BP with
 uniform `gamma0=0.1`, then 3 relay legs with per-node γ from
-`leg_gamma_table.gen.hpp`) and DMem-BP bias
-`Λj(t) = (1-γj(r))·λj + γj(r)·Mj(t-1)`. `MsgT` is plain `float` (no
-`ac_fixed`, no magnitude clip — matches `RelayDecoderF32` with
-`max_data_value=None`). `S=1` (stop on first converged leg). `kPreIter` is
-overridable via `-DKPRE_ITER_OVERRIDE=N` for the multileg regression.
+`leg_gamma_table.gen.hpp`) and DMem-BP bias matching Rust
+`compute_variable_prior`. Default `MsgT` is **`int`** with
+`data_scale_value=S=256` (`RelayDecoderI32`); float32 via
+`-DRELAY_MSG_T_FLOAT`. No magnitude clip. `S=1` (stop on first converged
+leg). `kPreIter` is overridable via `-DKPRE_ITER_OVERRIDE=N` for the multileg
+regression.
+
+Latency optimization / sim measurement:
+[`latency_optimization.md`](latency_optimization.md). Status table:
+[`../README.md`](../README.md).
 
 Golden files:
 
 | File | Config | Oracle | fpga_emu |
 |------|--------|--------|----------|
-| `test/golden/repetition_code_relay.json` | RelayDecoderF32, pre_iter=10 | none (`cross_checked: false`) | 4/4 PASS |
-| `test/golden/repetition_code_relay_multileg.json` | same, pre_iter=1 | none; proves leg transition | 4/4 PASS (`error_qubit_1` iters=3) |
+| `test/golden/repetition_code_relay_i32.json` | RelayDecoderI32, S=256, pre_iter=10 | default production | 4/4 PASS |
+| `test/golden/repetition_code_relay_multileg_i32.json` | same, pre_iter=1 | leg-transition proof | 4/4 PASS (`error_qubit_1` iters=3) |
+| `test/golden/repetition_code_relay.json` | RelayDecoderF32, pre_iter=10 | float path | 4/4 PASS (`--variant float`) |
+| `test/golden/repetition_code_relay_multileg.json` | float, pre_iter=1 | float multileg | 4/4 PASS |
 | `test/golden/repetition_code.json` | historical Q5.2 plain BP | Rust `decode_repetition_code_int` | (artifact) |
 | `test/golden/repetition_code_dmem.json` | historical Q5.2 DMem γ=0.1 | none | (artifact) |

@@ -95,23 +95,37 @@ the same line as `-Xs...` (e.g. `-Xsclock=...`).
 
 ## 3. FPGA simulator (`fpga_sim`) — minutes
 
-Kernel is compiled to RTL and simulated. Needs Quartus + a supported simulator
-on PATH **inside** the container (Questa, etc.).
+Kernel is compiled to RTL and co-simulated on the SYCL **FPGA simulator**
+device (MPSIM / `aclmsim0`). Needs Quartus tooling **plus** a supported HDL
+simulator on PATH **inside** the container (**Questa** / `questa_fse` here).
+
+This is **RTL co-sim of the HLS-generated kernel**, not Quartus post–place-
+and-route timing simulation, and not the early `report` flow alone.
 
 **One shot** (preferred; list every `.cpp` on this line):
 
 ```bash
 ahls -Wall -Xssimulation -DFPGA_SIMULATOR -I"$INC" \
   -Xssimulation -Xsghdl -Xsdevice="$DEVICE" \
+  -Xsoptimize=latency \
   -reuse-exe="$OUT.fpga_sim" \
   $SRC -o "$OUT.fpga_sim"
 ```
+
+Optional clock pin (also temporarily set
+`[[intel::scheduler_target_fmax_mhz(N)]]` on the kernel lambda if you want the
+scheduler to match): `-Xsclock=480MHz`.
 
 **Run:**
 
 ```bash
 CL_CONTEXT_MPSIM_DEVICE_INTELFPGA=1 ./"$OUT.fpga_sim"
 ```
+
+Latency cycles: parse `*.prj/reports/resources/json/sim_stats.ndjson` and
+`simulation_raw.ndjson` (see `docs/latency_optimization.md`). MPSIM often
+keeps `period=1000` ps as the tracker tick even when `-Xsclock` is set —
+convert ns with the pinned / reported fMAX.
 
 GDB can debug **host** code. The kernel is RTL — no in-kernel GDB.
 
@@ -157,15 +171,18 @@ Not GDB-debuggable as a kernel.
 | `-Wall` | compile | Warnings |
 | `-I<path>` | compile | Include path |
 | `-c` / `-o` | compile | Object (`-c`, optional) / output |
-| `-Xssimulation` | sim one-shot | Simulation flow |
+| `-Xssimulation` | sim one-shot | Simulation flow (MPSIM + Questa RTL) |
 | `-Xsghdl` | sim one-shot | GHDL/sim testbench |
+| `-Xsoptimize=latency` | report/sim | Minimum-latency scheduler flow |
+| `-Xsclock=<N>MHz` | report/sim/fpga | Pin kernel clock / schedule target |
 | `-Xshardware` | report/fpga one-shot | Hardware / RTL backend |
 | `-Xsdevice=<device>` | report/sim/fpga one-shot | Family or part |
 | `-fsycl-link=early` | report one-shot | Stop after early link / report |
 | `-reuse-exe=<bin>` | sim/fpga one-shot | Reuse previous host exe |
 
-FPGA backend options (`-Xsclock`, `-Xshyper-optimized-handshaking=off`, …)
-go on the same one-shot line for report / sim / fpga, not on the emulator.
+FPGA backend options (`-Xsclock`, `-Xsoptimize=latency`,
+`-Xshyper-optimized-handshaking=off`, …) go on the same one-shot line for
+report / sim / fpga, not on the emulator.
 
 Macros in the source typically look like:
 

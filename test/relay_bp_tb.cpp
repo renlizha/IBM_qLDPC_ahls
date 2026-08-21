@@ -175,12 +175,6 @@ std::vector<GoldenVector> parse_vectors(const std::string &json) {
 
 bool run_golden_file(sycl::queue &q, const std::string &json_path) {
   const std::string json = read_file(json_path);
-  auto log_priors_f = parse_number_array(json, "log_prior_ratios");
-  if (static_cast<int>(log_priors_f.size()) != kNVar) {
-    std::cerr << json_path << ": log_prior_ratios must have " << kNVar
-              << " entries\n";
-    return false;
-  }
   auto vectors = parse_vectors(json);
   if (vectors.size() != 4) {
     std::cerr << json_path << ": expected 4 golden vectors, got "
@@ -190,13 +184,47 @@ bool run_golden_file(sycl::queue &q, const std::string &json_path) {
 
   std::cout << "Golden file: " << json_path << std::endl;
 
+  MsgT priors[kNVar];
+#if defined(RELAY_MSG_T_FLOAT)
+  auto log_priors_f = parse_number_array(json, "log_prior_ratios");
+  if (static_cast<int>(log_priors_f.size()) != kNVar) {
+    std::cerr << json_path << ": log_prior_ratios must have " << kNVar
+              << " entries\n";
+    return false;
+  }
   double log_priors[kNVar];
   for (int v = 0; v < kNVar; ++v) {
     log_priors[v] = log_priors_f[v];
   }
-  MsgT priors[kNVar];
   load_priors(log_priors, priors);
-  std::cout << "float32 log-priors:";
+#else
+  // Prefer rust-scaled i32 LLRs when present (RelayDecoderI32 golden).
+  std::vector<double> prior_src;
+  try {
+    prior_src = parse_number_array(json, "log_prior_ratios_i32");
+  } catch (const std::exception &) {
+    prior_src.clear();
+  }
+  if (static_cast<int>(prior_src.size()) == kNVar) {
+    for (int v = 0; v < kNVar; ++v) {
+      priors[v] = static_cast<MsgT>(prior_src[v]);
+    }
+  } else {
+    auto log_priors_f = parse_number_array(json, "log_prior_ratios");
+    if (static_cast<int>(log_priors_f.size()) != kNVar) {
+      std::cerr << json_path
+                << ": need log_prior_ratios_i32 or log_prior_ratios with "
+                << kNVar << " entries\n";
+      return false;
+    }
+    double log_priors[kNVar];
+    for (int v = 0; v < kNVar; ++v) {
+      log_priors[v] = log_priors_f[v];
+    }
+    load_priors(log_priors, priors);
+  }
+#endif
+  std::cout << "MsgT log-priors:";
   for (int v = 0; v < kNVar; ++v) {
     std::cout << " " << priors[v];
   }
@@ -257,7 +285,7 @@ int main(int argc, char **argv) {
       files.emplace_back(argv[i]);
     }
   } else {
-    files.emplace_back("test/golden/repetition_code_relay.json");
+    files.emplace_back("test/golden/repetition_code_relay_i32.json");
   }
 
   try {

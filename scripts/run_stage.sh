@@ -32,7 +32,7 @@ case "$STAGE" in
           host/relay_bp_host.cpp test/relay_bp_tb.cpp \
           -o build/emu/relay_bp.fpga_emu
         exec_in ./build/emu/relay_bp.fpga_emu \
-          test/golden/repetition_code_relay.json
+          test/golden/repetition_code_relay_i32.json
         ;;
       multileg)
         # Same sources; only pre_iter overridden so leg 0 fails on
@@ -42,10 +42,19 @@ case "$STAGE" in
           host/relay_bp_host.cpp test/relay_bp_tb.cpp \
           -o build/emu/relay_bp_multileg.fpga_emu
         exec_in ./build/emu/relay_bp_multileg.fpga_emu \
-          test/golden/repetition_code_relay_multileg.json
+          test/golden/repetition_code_relay_multileg_i32.json
+        ;;
+      float)
+        # Legacy float32 golden / -DRELAY_MSG_T_FLOAT build.
+        exec_in ahls -Wall -DFPGA_EMULATOR -DRELAY_MSG_T_FLOAT -g -O0 \
+          -I device -I host \
+          host/relay_bp_host.cpp test/relay_bp_tb.cpp \
+          -o build/emu/relay_bp_float.fpga_emu
+        exec_in ./build/emu/relay_bp_float.fpga_emu \
+          test/golden/repetition_code_relay.json
         ;;
       *)
-        echo "unknown --variant '$VARIANT' (expected default|multileg)" >&2
+        echo "unknown --variant '$VARIANT' (expected default|multileg|float)" >&2
         exit 2
         ;;
     esac

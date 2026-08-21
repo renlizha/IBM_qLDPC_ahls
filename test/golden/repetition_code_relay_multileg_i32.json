@@ -1,0 +1,206 @@
+{
+  "code": "repetition_3",
+  "source": "relay_bp.RelayDecoderI32(pre_iter=1, data_scale_value=256, \u2026)",
+  "cross_checked": true,
+  "cross_check_oracle": "relay_bp.RelayDecoderI32",
+  "cross_check_note": "i32 multileg regression: pre_iter=1 with data_scale_value=256; matches -DKPRE_ITER_OVERRIDE=1.",
+  "multileg_vectors": [
+    {
+      "name": "error_qubit_1",
+      "iterations": 3,
+      "leg_reached": 1,
+      "leg_gamma_row": [
+        -0.2251251280243238,
+        0.4919432152802452,
+        0.5814800195499495
+      ],
+      "leg_gamma_q_row": [
+        -57,
+        125,
+        148
+      ]
+    }
+  ],
+  "check_matrix": [
+    [
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1
+    ]
+  ],
+  "error_priors": [
+    0.003,
+    0.003,
+    0.003
+  ],
+  "numeric_type": "int32",
+  "data_scale_value": 256,
+  "log_prior_ratios": [
+    5.806138481293728,
+    5.806138481293728,
+    5.806138481293728
+  ],
+  "log_prior_ratios_i32": [
+    1486,
+    1486,
+    1486
+  ],
+  "relay_config": {
+    "gamma0": 0.1,
+    "pre_iter": 1,
+    "num_sets": 3,
+    "set_max_iter": 10,
+    "stop_nconv": 1,
+    "stopping_criterion": "nconv",
+    "data_scale_value": 256,
+    "gamma_dist_interval": [
+      -0.24,
+      0.66
+    ],
+    "gamma_seed": 0,
+    "explicit_gammas": [
+      [
+        0.33326551858930886,
+        0.002808042387483306,
+        -0.20312382845742477
+      ],
+      [
+        -0.2251251280243238,
+        0.4919432152802452,
+        0.5814800195499495
+      ],
+      [
+        0.30597219819046195,
+        0.41654690488559853,
+        0.2492624923188806
+      ]
+    ],
+    "leg_gamma": [
+      [
+        0.1,
+        0.1,
+        0.1
+      ],
+      [
+        -0.2251251280243238,
+        0.4919432152802452,
+        0.5814800195499495
+      ],
+      [
+        0.30597219819046195,
+        0.41654690488559853,
+        0.2492624923188806
+      ],
+      [
+        0.33326551858930886,
+        0.002808042387483306,
+        -0.20312382845742477
+      ]
+    ],
+    "leg_gamma_q": [
+      [
+        25,
+        25,
+        25
+      ],
+      [
+        -57,
+        125,
+        148
+      ],
+      [
+        78,
+        106,
+        63
+      ],
+      [
+        85,
+        0,
+        -51
+      ]
+    ]
+  },
+  "vectors": [
+    {
+      "name": "no_error",
+      "detectors": [
+        0,
+        0
+      ],
+      "expected_decoding": [
+        0,
+        0,
+        0
+      ],
+      "expected_decoded_detectors": [
+        0,
+        0
+      ],
+      "success": true,
+      "iterations": 1,
+      "max_iter": 1
+    },
+    {
+      "name": "error_qubit_0",
+      "detectors": [
+        1,
+        0
+      ],
+      "expected_decoding": [
+        1,
+        0,
+        0
+      ],
+      "expected_decoded_detectors": [
+        1,
+        0
+      ],
+      "success": true,
+      "iterations": 1,
+      "max_iter": 1
+    },
+    {
+      "name": "error_qubit_1",
+      "detectors": [
+        1,
+        1
+      ],
+      "expected_decoding": [
+        0,
+        1,
+        0
+      ],
+      "expected_decoded_detectors": [
+        1,
+        1
+      ],
+      "success": true,
+      "iterations": 3,
+      "max_iter": 10
+    },
+    {
+      "name": "error_qubit_2",
+      "detectors": [
+        0,
+        1
+      ],
+      "expected_decoding": [
+        0,
+        0,
+        1
+      ],
+      "expected_decoded_detectors": [
+        0,
+        1
+      ],
+      "success": true,
+      "iterations": 1,
+      "max_iter": 1
+    }
+  ]
+}

@@ -2,14 +2,24 @@
 // Per-leg memory strengths kLegGamma[kNumLegs][kNVar].
 // Leg 0 = uniform gamma0; legs 1..3 = explicit_gammas[leg % num_sets]
 // matching rust RelayDecoder::init_next_set(set_idx).
+// kLegGammaQ = trunc(DATA_SCALE * kLegGamma) toward zero (Rust i32).
 #ifndef LEG_GAMMA_TABLE_GEN_HPP
 #define LEG_GAMMA_TABLE_GEN_HPP
+
+constexpr int kGammaQScale = 256;
 
 constexpr float kLegGamma[kNumLegs][kNVar] = {
     {0.10000000000000001f, 0.10000000000000001f, 0.10000000000000001f},  // leg 0
     {-0.2251251280243238f, 0.49194321528024521f, 0.58148001954994954f},  // leg 1
     {0.30597219819046195f, 0.41654690488559853f, 0.24926249231888059f},  // leg 2
     {0.33326551858930886f, 0.002808042387483306f, -0.20312382845742477f}  // leg 3
+};
+
+constexpr int kLegGammaQ[kNumLegs][kNVar] = {
+    {25, 25, 25},  // leg 0
+    {-57, 125, 148},  // leg 1
+    {78, 106, 63},  // leg 2
+    {85, 0, -51}  // leg 3
 };
 
 #endif
